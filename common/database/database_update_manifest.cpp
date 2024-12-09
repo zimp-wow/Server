@@ -5782,7 +5782,41 @@ CREATE INDEX idx_bot_expires ON data_buckets (bot_id, expires);
 ALTER TABLE `trader`
 	ADD COLUMN `char_zone_instance_id` INT NULL DEFAULT '0' AFTER `char_zone_id`;
 )"
+	},
+	ManifestEntry{
+		.version = 9287,
+		.description = "2024_12_4_zone_range_updates.sql",
+		.check       = "SHOW COLUMNS FROM `zone` LIKE 'client_update_range'",
+		.condition   = "empty",
+		.match       = "",
+		.sql         = R"(
+ALTER TABLE `zone` ADD COLUMN `npc_update_range` INT UNSIGNED DEFAULT '600';
+ALTER TABLE `zone` ADD COLUMN `client_update_range` INT UNSIGNED DEFAULT '600';
+ALTER TABLE `zone` DROP COLUMN `max_movement_update_range`;
+)"
+	},
+	ManifestEntry{
+		.version = 9288,
+		.description = "2024_11_10_zone_player_partitioning.sql",
+		.check       = "SHOW CREATE TABLE `zone`",
+		.condition   = "missing",
+		.match       = "shard_at_player_count",
+		.sql         = R"(
+ALTER TABLE `zone`
+ADD COLUMN `shard_at_player_count` int(11) NULL DEFAULT 0 AFTER `seconds_before_idle`;
+)"
+	},
+	ManifestEntry{
+		.version = 9289,
+		.description = "account_kill_counts.sql",
+		.check = "SHOW TABLES LIKE 'account_kill_counts'",
+		.condition = "empty",
+		.match = "",
+		.sql = R"(
+create table account_kill_counts(account_id int, race_id int, count int default 0, primary key(account_id, race_id));
+)"
 	}
+
 // -- template; copy/paste this when you need to create a new entry
 //	ManifestEntry{
 //		.version = 9228,
