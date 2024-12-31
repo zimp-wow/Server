@@ -5815,8 +5815,17 @@ ADD COLUMN `shard_at_player_count` int(11) NULL DEFAULT 0 AFTER `seconds_before_
 		.sql = R"(
 create table account_kill_counts(account_id int, race_id int, count int default 0, primary key(account_id, race_id));
 )"
+	},
+	ManifestEntry{
+		.version = 9290,
+		.description = "npc_types_multiquest_enabled.sql",
+		.check       = "SHOW COLUMNS FROM `npc_types` LIKE 'multiquest_enabled'",
+		.condition   = "empty",
+		.match       = "",
+		.sql         = R"(
+ALTER TABLE `npc_types` ADD COLUMN `multiquest_enabled` tinyint(1) unsigned default '0';
+)"
 	}
-
 // -- template; copy/paste this when you need to create a new entry
 //	ManifestEntry{
 //		.version = 9228,
