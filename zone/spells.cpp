@@ -5419,6 +5419,56 @@ int Mob::GetResist(uint8 resist_type)
 	}
 }
 
+int32 Client::GetMaxResistWithBonuses(uint8 resist_type) const
+{
+	switch(resist_type)
+	{
+	case RESIST_FIRE:
+		return GetMaxFR();
+	case RESIST_COLD:
+		return GetMaxCR();
+	case RESIST_MAGIC:
+		return GetMaxMR();
+	case RESIST_DISEASE:
+		return GetMaxDR();
+	case RESIST_POISON:
+		return GetMaxPR();
+	case RESIST_CORRUPTION:
+		return GetMaxCorrup();
+	case RESIST_PRISMATIC:
+		return (GetMaxFR() + GetMaxCR() + GetMaxMR() + GetMaxDR() + GetMaxPR()) / 5;
+	case RESIST_CHROMATIC:
+		return std::min({GetMaxFR(), GetMaxCR(), GetMaxMR(), GetMaxDR(), GetMaxPR()});
+	default:
+		return -1;
+	}
+}
+
+int Client::GetRawResist(uint8 resist_type) const
+{
+	switch(resist_type)
+	{
+	case RESIST_FIRE:
+		return GetRawFR();
+	case RESIST_COLD:
+		return GetRawCR();
+	case RESIST_MAGIC:
+		return GetRawMR();
+	case RESIST_DISEASE:
+		return GetRawDR();
+	case RESIST_POISON:
+		return GetRawPR();
+	case RESIST_CORRUPTION:
+		return GetRawCorrup();
+	case RESIST_PRISMATIC:
+		return (GetRawFR() + GetRawCR() + GetRawMR() + GetRawDR() + GetRawPR()) / 5;
+	case RESIST_CHROMATIC:
+		return std::min({GetRawFR(), GetRawCR(), GetRawMR(), GetRawDR(), GetRawPR()});
+	default:
+		return -1;
+	}
+}
+
 //
 // Spell resists:
 // returns an effectiveness index from 0 to 100. for most spells, 100 means
@@ -5473,12 +5523,34 @@ float Mob::ResistSpell(uint8 resist_type, uint16 spell_id, Mob *caster, bool use
 		}
 	}
 
+	int bard_max_resist = -1, bard_cur_resist = -1;
 	if (caster->IsClient()) {
 		resist_modifier -= caster->CastToClient()->GetHeroicCHA();
+		if(caster->CastToClient()->HasClass(Class::Bard)) {
+			bard_max_resist = caster->CastToClient()->GetMaxResistWithBonuses(resist_type);
+			bard_cur_resist = caster->CastToClient()->GetRawResist(resist_type);
+		}
 	}
 
 	if (caster->IsPet() && caster->GetOwner() && caster->GetOwner()->IsClient()) {
 		resist_modifier -= caster->GetOwner()->CastToClient()->GetHeroicCHA();
+		if(caster->GetOwner()->CastToClient()->HasClass(Class::Bard)) {
+			bard_max_resist = caster->GetOwner()->CastToClient()->GetMaxResistWithBonuses(resist_type);
+			bard_cur_resist = caster->GetOwner()->CastToClient()->GetRawResist(resist_type);
+		}
+	}
+
+	float bard_resist_bonus = RuleR(Custom, BardExcessResistBonus);
+	int bard_bonus_cap = RuleI(Custom, BardExcessResistCap);
+	//LogSpells("Bard pre-modified resist: Max[{}] Raw[{}] Modifier[{}]", bard_max_resist, bard_cur_resist, bard_resist_bonus, resist_modifier);
+	if(bard_max_resist >= 0 && bard_cur_resist >= 0 && bard_cur_resist > bard_max_resist && RuleB(Custom, MulticlassingEnabled) && bard_resist_bonus > 0.0f && bard_bonus_cap > 0) {
+		int32 diff = bard_cur_resist - bard_max_resist;
+		int amount = diff * bard_resist_bonus;
+		if(amount > bard_bonus_cap) {
+			amount = bard_bonus_cap;
+		}
+		resist_modifier -= amount;
+		//LogSpells("Bard modified resist: Max[{}] Raw[{}] Diff[{}] Bonus/Cap[{}/{}] Amount[{}] Modifier[{}]", bard_max_resist, bard_cur_resist, diff, bard_resist_bonus, bard_bonus_cap, amount, resist_modifier);
 	}
 
 	if(caster->GetSpecialAbility(SpecialAbility::CastingResistDifficulty))

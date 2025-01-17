@@ -590,15 +590,23 @@ public:
 	inline virtual int32 GetWIS() const { return WIS; }
 	inline virtual int32 GetCHA() const { return CHA; }
 	inline virtual int32 GetMR() const { return MR; }
+	inline int32 GetRawMR() const { return RawMR; }
 	inline virtual int32 GetFR() const { return FR; }
+	inline int32 GetRawFR() const { return RawFR; }
 	inline virtual int32 GetDR() const { return DR; }
+	inline int32 GetRawDR() const { return RawDR; }
 	inline virtual int32 GetPR() const { return PR; }
+	inline int32 GetRawPR() const { return RawPR; }
 	inline virtual int32 GetCR() const { return CR; }
+	inline int32 GetRawCR() const { return RawCR; }
 	inline virtual int32 GetCorrup() const { return Corrup; }
+	inline int32 GetRawCorrup() const { return RawCorrup; }
 	inline virtual int32 GetPhR() const { return PhR; }
+	int GetRawResist(uint8 resist_type) const;
 
 	int32 GetMaxStat() const;
 	int32 GetMaxResist() const;
+	int32 GetMaxResistWithBonuses(uint8 resist_type) const;
 	int32 GetMaxSTR() const;
 	int32 GetMaxSTA() const;
 	int32 GetMaxDEX() const;
@@ -1973,6 +1981,13 @@ protected:
 	char *adv_requested_data;
 	int adv_requested_member_count;
 	char *adv_data;
+
+	int32 RawMR;
+	int32 RawCR;
+	int32 RawFR;
+	int32 RawDR;
+	int32 RawPR;
+	int32 RawCorrup;
 
 private:
 

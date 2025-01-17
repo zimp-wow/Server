@@ -1082,6 +1082,7 @@ int32	Client::CalcMR()
 	if (MR < 1) {
 		MR = 1;
 	}
+	RawMR = MR;
 	if (MR > GetMaxMR()) {
 		MR = GetMaxMR();
 	}
@@ -1168,6 +1169,7 @@ int32	Client::CalcFR()
 	if (FR < 1) {
 		FR = 1;
 	}
+	RawFR = FR;
 	if (FR > GetMaxFR()) {
 		FR = GetMaxFR();
 	}
@@ -1260,6 +1262,7 @@ int32	Client::CalcDR()
 	if (DR < 1) {
 		DR = 1;
 	}
+	RawDR = DR;
 	if (DR > GetMaxDR()) {
 		DR = GetMaxDR();
 	}
@@ -1352,6 +1355,7 @@ int32	Client::CalcPR()
 	if (PR < 1) {
 		PR = 1;
 	}
+	RawPR = PR;
 	if (PR > GetMaxPR()) {
 		PR = GetMaxPR();
 	}
@@ -1431,6 +1435,7 @@ int32	Client::CalcCR()
 	if (CR < 1) {
 		CR = 1;
 	}
+	RawCR = CR;
 	if (CR > GetMaxCR()) {
 		CR = GetMaxCR();
 	}
@@ -1440,6 +1445,7 @@ int32	Client::CalcCR()
 int32	Client::CalcCorrup()
 {
 	Corrup = GetBaseCorrup() + itembonuses.Corrup + spellbonuses.Corrup + aabonuses.Corrup;
+	RawCorrup = Corrup;
 	if (Corrup > GetMaxCorrup()) {
 		Corrup = GetMaxCorrup();
 	}
