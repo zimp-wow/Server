@@ -77,7 +77,7 @@ Spawn2::Spawn2(uint32 in_spawn2_id, uint32 spawngroup_id,
 	float in_x, float in_y, float in_z, float in_heading,
 	uint32 respawn, uint32 variance, uint32 timeleft, uint32 grid,
 	bool in_path_when_zone_idle, uint16 in_cond_id, int16 in_min_value,
-	bool in_enabled, EmuAppearance anim)
+	bool in_enabled, EmuAppearance anim, bool disable_loot)
 : timer(100000), killcount(0)
 {
 	spawn2_id = in_spawn2_id;
@@ -95,6 +95,7 @@ Spawn2::Spawn2(uint32 in_spawn2_id, uint32 spawngroup_id,
 	npcthis = nullptr;
 	enabled = in_enabled;
 	this->anim = anim;
+	disable_loot = disable_loot;
 
 	if(timeleft == 0xFFFFFFFF) {
 		//special disable timeleft
@@ -270,7 +271,10 @@ bool Spawn2::Process() {
 		NPC *npc = new NPC(tmp, this, glm::vec4(x, y, z, heading), GravityBehavior::Water);
 
 		npcthis = npc;
-		npc->AddLootTable();
+		if(!disable_loot) {
+			// Only disabling main loot table, global loot still allowed
+			npc->AddLootTable();
+		}
 		if (npc->DropsGlobalLoot()) {
 			npc->CheckGlobalLootTables();
 		}
@@ -458,6 +462,13 @@ bool ZoneDatabase::PopulateZoneSpawnList(uint32 zoneid, LinkedList<Spawn2*> &spa
 		suppress_spawn = true;
 	}
 
+	auto token_respawns = false, disable_loot = false;
+	if (RuleI(Custom, EventInstanceVersion) == version) {
+		version = RuleI(Custom, EventInstanceTemplateVersion);
+		token_respawns = true;
+		disable_loot = true;
+	}
+
 	/* Bulk Load NPC Types Data into the cache */
 	content_db.LoadNPCTypesData(0, true);
 
@@ -495,11 +506,6 @@ bool ZoneDatabase::PopulateZoneSpawnList(uint32 zoneid, LinkedList<Spawn2*> &spa
 
 	std::vector<uint32> spawn2_ids;
 	for (auto &s: spawns) {
-		if (no_respawn) {
-			s.respawntime = 604800000; // arbitrary large number
-			s.variance = 0;
-		}
-
 		spawn2_ids.push_back(s.id);
 	}
 
@@ -534,10 +540,20 @@ bool ZoneDatabase::PopulateZoneSpawnList(uint32 zoneid, LinkedList<Spawn2*> &spa
 			}
 		}
 
+		if (no_respawn) {
+			s.respawntime = 604800000; // arbitrary large number
+			s.variance = 0;
+		}
+
 		if (suppress_spawn) {
 			if (s.respawntime >= (2 * 60 * 60)) {
 				spawn_enabled = false;
 			}
+		}
+
+		if (token_respawns) {
+			s.respawntime = RuleI(Custom, EventInstanceRespawnSeconds);
+			s.variance = 0;
 		}
 
 		auto new_spawn = new Spawn2(
@@ -555,7 +571,8 @@ bool ZoneDatabase::PopulateZoneSpawnList(uint32 zoneid, LinkedList<Spawn2*> &spa
 			s._condition,
 			(int16) s.cond_value,
 			spawn_enabled,
-			(EmuAppearance) s.animation
+			(EmuAppearance) s.animation,
+			disable_loot
 		);
 
 		spawn2_list.Insert(new_spawn);
