@@ -219,9 +219,11 @@ Mob* QuestManager::spawn2(int npc_id, int grid, int unused, const glm::vec4& pos
 	const NPCType* t = 0;
 	if (t = content_db.LoadNPCTypesData(npc_id)) {
 		auto npc = new NPC(t, nullptr, position, GravityBehavior::Water);
-		npc->AddLootTable();
-		if (npc->DropsGlobalLoot()) {
-			npc->CheckGlobalLootTables();
+		if(zone->GetInstanceVersion() != RuleI(Custom, EventInstanceVersion)) {
+			npc->AddLootTable();
+			if (npc->DropsGlobalLoot()) {
+				npc->CheckGlobalLootTables();
+			}
 		}
 
 		entity_list.AddNPC(npc, true, true);
@@ -245,9 +247,12 @@ Mob* QuestManager::unique_spawn(int npc_type, int grid, int unused, const glm::v
 	if (tmp = content_db.LoadNPCTypesData(npc_type))
 	{
 		auto npc = new NPC(tmp, nullptr, position, GravityBehavior::Water);
-		npc->AddLootTable();
-		if (npc->DropsGlobalLoot())
-			npc->CheckGlobalLootTables();
+		if(zone->GetInstanceVersion() != RuleI(Custom, EventInstanceVersion)) {
+			npc->AddLootTable();
+			if (npc->DropsGlobalLoot()) {
+				npc->CheckGlobalLootTables();
+			}
+		}
 		entity_list.AddNPC(npc,true,true);
 		if(grid > 0)
 		{
@@ -327,9 +332,11 @@ Mob *QuestManager::spawn_from_spawn2(uint32 spawn2_id)
 		auto npc = new NPC(tmp, found_spawn, position, GravityBehavior::Water);
 
 		found_spawn->SetNPCPointer(npc);
-		npc->AddLootTable();
-		if (npc->DropsGlobalLoot()) {
-			npc->CheckGlobalLootTables();
+		if(zone->GetInstanceVersion() != RuleI(Custom, EventInstanceVersion)) {
+			npc->AddLootTable();
+			if (npc->DropsGlobalLoot()) {
+				npc->CheckGlobalLootTables();
+			}
 		}
 		npc->SetSpawnGroupId(found_spawn->SpawnGroupID());
 		entity_list.AddNPC(npc);
@@ -2088,9 +2095,12 @@ void QuestManager::respawn(int npcTypeID, int grid) {
 	if ((npcType = content_db.LoadNPCTypesData(npcTypeID)))
 	{
 		owner = new NPC(npcType, nullptr, owner->GetPosition(), GravityBehavior::Water);
-		owner->CastToNPC()->AddLootTable();
-		if (owner->CastToNPC()->DropsGlobalLoot())
-			owner->CastToNPC()->CheckGlobalLootTables();
+		if(zone->GetInstanceVersion() != RuleI(Custom, EventInstanceVersion)) {
+			owner->CastToNPC()->AddLootTable();
+			if (owner->CastToNPC()->DropsGlobalLoot()) {
+				owner->CastToNPC()->CheckGlobalLootTables();
+			}
+		}
 		entity_list.AddNPC(owner->CastToNPC(),true,true);
 		if(grid > 0)
 			owner->CastToNPC()->AssignWaypoints(grid);
@@ -4587,10 +4597,11 @@ void QuestManager::SpawnCircle(uint32 npc_id, glm::vec4 position, float radius, 
 
 		n->FixZ();
 
-		n->AddLootTable();
-
-		if (n->DropsGlobalLoot()) {
-			n->CheckGlobalLootTables();
+		if(zone->GetInstanceVersion() != RuleI(Custom, EventInstanceVersion)) {
+			n->AddLootTable();
+			if (n->DropsGlobalLoot()) {
+				n->CheckGlobalLootTables();
+			}
 		}
 
 		entity_list.AddNPC(n, true, true);
@@ -4630,10 +4641,11 @@ void QuestManager::SpawnGrid(uint32 npc_id, glm::vec4 position, float spacing, u
 
 			n->FixZ();
 
-			n->AddLootTable();
-
-			if (n->DropsGlobalLoot()) {
-				n->CheckGlobalLootTables();
+			if(zone->GetInstanceVersion() != RuleI(Custom, EventInstanceVersion)) {
+				n->AddLootTable();
+				if (n->DropsGlobalLoot()) {
+					n->CheckGlobalLootTables();
+				}
 			}
 
 			entity_list.AddNPC(n, true, true);
