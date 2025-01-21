@@ -21,6 +21,7 @@
 
 #include "client.h"
 #include "entity.h"
+#include "quest_parser_collection.h"
 #include "spawn2.h"
 #include "spawngroup.h"
 #include "worldserver.h"
@@ -77,7 +78,7 @@ Spawn2::Spawn2(uint32 in_spawn2_id, uint32 spawngroup_id,
 	float in_x, float in_y, float in_z, float in_heading,
 	uint32 respawn, uint32 variance, uint32 timeleft, uint32 grid,
 	bool in_path_when_zone_idle, uint16 in_cond_id, int16 in_min_value,
-	bool in_enabled, EmuAppearance anim, bool disable_loot)
+	bool in_enabled, EmuAppearance anim, bool in_disable_loot)
 : timer(100000), killcount(0)
 {
 	spawn2_id = in_spawn2_id;
@@ -95,7 +96,7 @@ Spawn2::Spawn2(uint32 in_spawn2_id, uint32 spawngroup_id,
 	npcthis = nullptr;
 	enabled = in_enabled;
 	this->anim = anim;
-	disable_loot = disable_loot;
+	disable_loot = in_disable_loot;
 
 	if(timeleft == 0xFFFFFFFF) {
 		//special disable timeleft
@@ -270,17 +271,25 @@ bool Spawn2::Process() {
 
 		NPC *npc = new NPC(tmp, this, glm::vec4(x, y, z, heading), GravityBehavior::Water);
 
-		npcthis = npc;
 		if(!disable_loot) {
-			// Only disabling main loot table, global loot still allowed
 			npc->AddLootTable();
+			if (npc->DropsGlobalLoot()) {
+				npc->CheckGlobalLootTables();
+			}
 		}
-		if (npc->DropsGlobalLoot()) {
-			npc->CheckGlobalLootTables();
-		}
+
 		npc->SetSpawnGroupId(spawngroup_id_);
 		npc->SaveGuardPointAnim(anim);
 		npc->SetAppearance((EmuAppearance) anim);
+
+		if (parse->HasQuestSub(npcid, EVENT_PREPARE_SPAWN)) {
+			int allow_spawn = parse->EventNPC(EVENT_PREPARE_SPAWN, npc, nullptr, "", 0);
+			if(allow_spawn < 0) {
+				return;
+			}
+		}
+
+		npcthis = npc;
 		entity_list.AddNPC(npc);
 		//this limit add must be done after the AddNPC since we need the entity ID.
 		entity_list.LimitAddNPC(npc);
@@ -462,10 +471,10 @@ bool ZoneDatabase::PopulateZoneSpawnList(uint32 zoneid, LinkedList<Spawn2*> &spa
 		suppress_spawn = true;
 	}
 
-	auto token_respawns = false, disable_loot = false;
+	auto event_respawns = false, disable_loot = false;
 	if (RuleI(Custom, EventInstanceVersion) == version) {
 		version = RuleI(Custom, EventInstanceTemplateVersion);
-		token_respawns = true;
+		event_respawns = true;
 		disable_loot = true;
 	}
 
@@ -551,7 +560,7 @@ bool ZoneDatabase::PopulateZoneSpawnList(uint32 zoneid, LinkedList<Spawn2*> &spa
 			}
 		}
 
-		if (token_respawns) {
+		if (event_respawns) {
 			s.respawntime = RuleI(Custom, EventInstanceRespawnSeconds);
 			s.variance = 0;
 		}
