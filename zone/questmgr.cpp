@@ -3291,11 +3291,11 @@ void QuestManager::removeitem(uint32 item_id, uint32 quantity) {
 	initiator->RemoveItem(item_id, quantity);
 }
 
-void QuestManager::UpdateSpawnTimer(uint32 spawn2_id, uint32 new_time)
+void QuestManager::UpdateSpawnTimer(uint32 spawn2_id, uint32 new_time, uint32 instance_id)
 {
 	bool found = false;
 
-	database.UpdateRespawnTime(spawn2_id, 0, (new_time / 1000));
+	database.UpdateRespawnTime(spawn2_id, instance_id, (new_time / 1000));
 
 	LinkedListIterator<Spawn2*> iterator(zone->spawn2_list);
 
