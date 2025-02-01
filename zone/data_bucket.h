@@ -12,20 +12,23 @@ struct DataBucketKey {
 	std::string key;
 	std::string value;
 	std::string expires;
-	int64_t     character_id;
-	int64_t     npc_id;
-	int64_t     bot_id;
+	int64_t     account_id = 0;
+	int64_t     character_id = 0;
+	int64_t     npc_id = 0;
+	int64_t     bot_id = 0;
 };
 
 namespace DataBucketLoadType {
 	enum Type : uint8 {
 		Bot,
+		Account,
 		Client,
 		MaxType
 	};
 
 	static const std::string Name[Type::MaxType] = {
 		"Bot",
+		"Account",
 		"Client",
 	};
 }
@@ -42,9 +45,9 @@ public:
 	static bool GetDataBuckets(Mob *mob);
 
 	// scoped bucket methods
-	static void SetData(const DataBucketKey &k);
+	static void SetData(const DataBucketKey &k_);
 	static bool DeleteData(const DataBucketKey &k);
-	static DataBucketsRepository::DataBuckets GetData(const DataBucketKey &k, bool ignore_misses_cache = false);
+	static DataBucketsRepository::DataBuckets GetData(const DataBucketKey &k_, bool ignore_misses_cache = false);
 	static std::string GetDataExpires(const DataBucketKey &k);
 	static std::string GetDataRemaining(const DataBucketKey &k);
 	static std::string GetScopedDbFilters(const DataBucketKey &k);
@@ -60,6 +63,8 @@ public:
 	static void ClearCache();
 	static void DeleteFromCache(uint64 id, DataBucketLoadType::Type type);
 	static bool CanCache(const DataBucketKey &key);
+	static DataBucketsRepository::DataBuckets
+	ExtractNestedValue(const DataBucketsRepository::DataBuckets &bucket, const std::string &full_key);
 };
 
 #endif //EQEMU_DATABUCKET_H

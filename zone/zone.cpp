@@ -1388,7 +1388,6 @@ bool Zone::LoadZoneCFG(const char* filename, uint16 instance_version)
 	can_levitate          = z->canlevitate != 0;
 	can_castoutdoor       = z->castoutdoor != 0;
 	is_hotzone            = z->hotzone != 0;
-	m_npc_update_range    = z->npc_update_range;
 	m_client_update_range = z->client_update_range;
 	default_ruleset       = z->ruleset;
 	allow_mercs           = true;
@@ -2123,6 +2122,10 @@ bool ZoneDatabase::LoadStaticZonePoints(LinkedList<ZonePoint *> *zone_point_list
 
 	if (RuleI(Custom, FarmingInstanceVersion) == version) {
 		version = RuleI(Custom, FarmingInstanceTemplateVersion);
+	}
+
+	if (RuleI(Custom, EventInstanceVersion) == version) {
+		version = RuleI(Custom, EventInstanceTemplateVersion);
 	}
 
 	auto zone_points = ZonePointsRepository::GetWhere(content_db,

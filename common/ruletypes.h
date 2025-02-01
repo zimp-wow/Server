@@ -374,9 +374,6 @@ RULE_BOOL(Zone, AllowCrossZoneSpellsOnBots, false, "Set to true to allow cross z
 RULE_BOOL(Zone, AllowCrossZoneSpellsOnMercs, false, "Set to true to allow cross zone spells (cast/remove) to affect mercenaries")
 RULE_BOOL(Zone, AllowCrossZoneSpellsOnPets, false, "Set to true to allow cross zone spells (cast/remove) to affect pets")
 RULE_BOOL(Zone, ZoneShardQuestMenuOnly, false, "Set to true if you only want quests to show the zone shard menu")
-RULE_BOOL(Zone, AkkadiusTempDataBucketsChangeFlag, true, "Set to true to allow the AkkadiusTempDataBucketsFlagChange to be used for zone specific data")
-RULE_BOOL(Zone, AkkadiusTempPerformanceFeatureFlag, true, "Enable or disable the Akkadius Temp Performance Feature Flag")
-RULE_BOOL(Zone, EnableEntityClipping, true, "Enable or disable visual entity clipping server side")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Map)
@@ -841,6 +838,7 @@ RULE_REAL(Bazaar, ParcelDeliveryCostMod, 0.20, "Cost of parcel delivery for a ba
 RULE_INT(Bazaar, VoucherDeliveryCost, 200, "Number of vouchers for direct delivery for a bazaar purchase. Default is 200 vouchers. RoF+ Only.")
 RULE_BOOL(Bazaar, EnableParcelDelivery, true, "Enable bazaar purchases via parcel delivery.  Default is True.")
 RULE_INT(Bazaar, MaxBuyerInventorySearchResults, 200, "Maximum number of search results when a Buyer searches the global item list. Default is 200. RoF+ Only.")
+RULE_BOOL(Bazaar, UseAlternateBazaarSearch, false, "Allows the bazaar search window to search across bazaar shards. Default is false.")
 RULE_CATEGORY_END()
 
 RULE_CATEGORY(Mail)
@@ -1049,6 +1047,13 @@ RULE_INT(Parcel, ParcelMaxItems, 50, "The maximum number of parcels a player is 
 RULE_INT(Parcel, ParcelPruneDelay, 30, "The number of days after which a parcel is deleted. Items are lost!")
 RULE_CATEGORY_END()
 
+RULE_CATEGORY(EvolvingItems)
+RULE_REAL(EvolvingItems, PercentOfSoloExperience, 0.1, "Percentage of solo experience allocated to evolving items that require experience.")
+RULE_REAL(EvolvingItems, PercentOfGroupExperience, 0.1, "Percentage of group experience allocated to evolving items that require experience.")
+RULE_REAL(EvolvingItems, PercentOfRaidExperience, 0.1, "Percentage of solo experience allocated to evolving items that require experience.")
+RULE_INT(EvolvingItems, DelayUponEquipping, 30000, "Delay in ms before an evolving item will earn rewards after equipping.  Default is 30000ms or 30s.")
+RULE_CATEGORY_END()
+
 RULE_CATEGORY(Custom)
 // Multiclassing Engine
 RULE_BOOL(Custom, 	ServerAuthStats, 						true, "Enable this rule in order to send explicit client updates. Requires client dll.")
@@ -1098,6 +1103,9 @@ RULE_INT(Custom, 	StaticInstanceVersion,					UINT8_MAX, "Instances with the vers
 RULE_INT(Custom, 	StaticInstanceTemplateVersion,			0, "Template version for non-respawning instances")
 RULE_INT(Custom, 	FarmingInstanceVersion,					254, "Instances with the version will load as FarmingInstanceTemplateVersion and have long-respawn mobs disabled")
 RULE_INT(Custom, 	FarmingInstanceTemplateVersion,			0, "Template version for non-respawning instances")
+RULE_INT(Custom, 	EventInstanceVersion,					253, "Instances with the version will load as EventInstanceTemplateVersion and have loot removed")
+RULE_INT(Custom, 	EventInstanceTemplateVersion,			0, "Template version for event instances")
+RULE_INT(Custom, 	EventInstanceRespawnSeconds,			600, "Default respawn time for enemies in event instances")
 RULE_BOOL(Custom, 	DoubleAttackSkillRanged, 				false, "Use Double & Triple Attack skills for ranged attacks")
 RULE_BOOL(Custom, 	TemporaryStunImmunity, 					true, "Clients become immune to Stun for a duration after being stunned")
 RULE_BOOL(Custom,   ForceNPCFearPathing, 					true, "Forces NPCs to Fear path even if Combat:EnableFearPathing is disabled.")
@@ -1107,6 +1115,7 @@ RULE_BOOL(Custom, 	UseAAEXPVeterancy,						false, "Use max AA on any character i
 RULE_REAL(Custom,	CastedSpellCritBonusRatio, 				1.0, "Multiply casted (Not procs) spells crit ratio by this value")
 RULE_REAL(Custom,	ProcSpellCritBonusRatio, 				1.0, "Multiply proc spells crit ratio by this value")
 RULE_STRING(Custom,     HubZones, 					"151,22", "Hub zones to display in #zoneshard output")
+RULE_STRING(Custom,	AA339Whitelist,						"16121,16122,16123,16675,16676,16677,30887,30888,30889,aa545", "List of spell/aa ids with trigger on cast effects that will trigger off AA abilities")
 
 RULE_BOOL(Custom,   UseHasteForMeleeSkills, 				true, "Use Haste stat for activated melee skills")
 RULE_REAL(Custom, 	PetWeaponTuningMult, 					0.5, "Value added to weapon ratio for pet weapon usage")

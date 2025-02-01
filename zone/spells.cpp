@@ -1838,7 +1838,7 @@ void Mob::CastedSpellFinished(uint16 spell_id, uint32 target_id, CastingSlot slo
 			}
 		}
 
-		TryTriggerOnCastFocusEffect(focusTriggerOnCast, spell_id);
+		TryTriggerOnCastFocusEffect(focusTriggerOnCast, spell_id, false);
 
 	} else {
 		LogDebug("Spell was not eligible for Sympathetic Procs");
@@ -2678,7 +2678,7 @@ bool Mob::SpellFinished(uint16 spell_id, Mob *spell_target, CastingSlot slot, in
 						LogDebug("Adding Extra Pet Target: [{}]", pet->GetCleanName());
 						LogDebug("Setting Override: [{}]", GetEntityVariable("SympProcTargetOverride"));
 						SetEntityVariable("SympProcTargetOverride", std::to_string(pet->GetID()));
-						TryTriggerOnCastFocusEffect(focusTriggerOnCast, spell_id);
+						TryTriggerOnCastFocusEffect(focusTriggerOnCast, spell_id, false);
 					}
 					DeleteEntityVariable("SympProcTargetOverride");
 				}
@@ -4796,8 +4796,8 @@ bool Mob::SpellOnTarget(
 		}
 	}
 
-	message_packet = new EQApplicationPacket(OP_Damage, sizeof(CombatDamage_Struct));
-	CombatDamage_Struct *cd = (CombatDamage_Struct *)message_packet->pBuffer;
+	static EQApplicationPacket p(OP_Damage, sizeof(CombatDamage_Struct));
+	auto                       cd = (CombatDamage_Struct *) p.pBuffer;
 	cd->target = action->target;
 	cd->source = action->source;
 	cd->type = action->type;
@@ -4815,7 +4815,7 @@ bool Mob::SpellOnTarget(
 	) {
 		entity_list.QueueCloseClients(
 			spelltar, /* Sender */
-			message_packet, /* Packet */
+			&p, /* Packet */
 			false, /* Ignore Sender */
 			RuleI(Range, SpellMessages),
 			0, /* Skip this mob */
@@ -4825,7 +4825,6 @@ bool Mob::SpellOnTarget(
 	}
 
 	safe_delete(action_packet);
-	safe_delete(message_packet);
 
 	/*
 		Bug: When an HP buff with a heal effect is applied for first time, the heal portion of the effect heals the client and
@@ -7714,15 +7713,17 @@ void Mob::SetHP(int64 hp)
 
 void Mob::DrawDebugCoordinateNode(std::string node_name, const glm::vec4 vec)
 {
-	NPC             *node = nullptr;
+	NPC *node = nullptr;
+
 	for (const auto &n: entity_list.GetNPCList()) {
-		if (n.second->GetCleanName() == node_name) {
+		if (n.second->GetEntityVariable("node_parent_id") == std::to_string(GetID())) {
 			node = n.second;
 			break;
 		}
 	}
 	if (!node) {
 		node = NPC::SpawnNodeNPC(node_name, "", GetPosition());
+		node->SetEntityVariable("node_parent_id", std::to_string(GetID()));
 	}
 }
 

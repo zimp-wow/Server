@@ -979,9 +979,9 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 						auto action_packet =
 						    new EQApplicationPacket(OP_Action, sizeof(Action_Struct));
 						Action_Struct* action = (Action_Struct*) action_packet->pBuffer;
-						auto message_packet =
-						    new EQApplicationPacket(OP_Damage, sizeof(CombatDamage_Struct));
-						CombatDamage_Struct *cd = (CombatDamage_Struct *)message_packet->pBuffer;
+
+						static EQApplicationPacket p(OP_Damage, sizeof(CombatDamage_Struct));
+						auto                       cd = (CombatDamage_Struct *) p.pBuffer;
 
 						action->target = GetID();
 						action->source = caster ? caster->GetID() : GetID();
@@ -1004,16 +1004,15 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 							caster->CastToClient()->QueuePacket(action_packet);
 						}
 
-						CastToClient()->QueuePacket(message_packet);
+						CastToClient()->QueuePacket(&p);
 
 						if (caster && caster->IsClient() && caster != this) {
-							caster->CastToClient()->QueuePacket(message_packet);
+							caster->CastToClient()->QueuePacket(&p);
 						}
 
 						CastToClient()->SetBindPoint(spells[spell_id].base_value[i] - 1);
 						Save();
 						safe_delete(action_packet);
-						safe_delete(message_packet);
 					} else {
 						if (!zone->CanBind()) {
 							MessageString(Chat::SpellFailure, CANNOT_BIND);
@@ -1028,9 +1027,9 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 								auto action_packet = new EQApplicationPacket(
 								    OP_Action, sizeof(Action_Struct));
 								Action_Struct* action = (Action_Struct*) action_packet->pBuffer;
-								auto message_packet = new EQApplicationPacket(
-								    OP_Damage, sizeof(CombatDamage_Struct));
-								CombatDamage_Struct *cd = (CombatDamage_Struct *)message_packet->pBuffer;
+
+								static EQApplicationPacket p(OP_Damage, sizeof(CombatDamage_Struct));
+								auto                       cd = (CombatDamage_Struct *) p.pBuffer;
 
 								action->target = GetID();
 								action->source = caster ? caster->GetID() : GetID();
@@ -1053,24 +1052,23 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 									caster->CastToClient()->QueuePacket(action_packet);
 								}
 
-								CastToClient()->QueuePacket(message_packet);
+								CastToClient()->QueuePacket(&p);
 
 								if (caster->IsClient() && caster != this) {
-									caster->CastToClient()->QueuePacket(message_packet);
+									caster->CastToClient()->QueuePacket(&p);
 								}
 
 								CastToClient()->SetBindPoint(spells[spell_id].base_value[i] - 1);
 								Save();
 								safe_delete(action_packet);
-								safe_delete(message_packet);
 							}
 						} else {
 							auto action_packet =
 							    new EQApplicationPacket(OP_Action, sizeof(Action_Struct));
 							Action_Struct* action = (Action_Struct*) action_packet->pBuffer;
-							auto message_packet = new EQApplicationPacket(
-							    OP_Damage, sizeof(CombatDamage_Struct));
-							CombatDamage_Struct *cd = (CombatDamage_Struct *)message_packet->pBuffer;
+
+							static EQApplicationPacket p(OP_Damage, sizeof(CombatDamage_Struct));
+							auto                       cd = (CombatDamage_Struct *) p.pBuffer;
 
 							action->target = GetID();
 							action->source = caster ? caster->GetID() : GetID();
@@ -1093,16 +1091,15 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 								caster->CastToClient()->QueuePacket(action_packet);
 							}
 
-							CastToClient()->QueuePacket(message_packet);
+							CastToClient()->QueuePacket(&p);
 
 							if (caster->IsClient() && caster != this) {
-								caster->CastToClient()->QueuePacket(message_packet);
+								caster->CastToClient()->QueuePacket(&p);
 							}
 
 							CastToClient()->SetBindPoint(spells[spell_id].base_value[i] - 1);
 							Save();
 							safe_delete(action_packet);
-							safe_delete(message_packet);
 						}
 					}
 				}
@@ -1202,11 +1199,8 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 			{
 				//Attempt to remove up to base amount of detrimental effects (excluding charm, fear, resurrection, and revival sickness).
 				int purify_count = spells[spell_id].base_value[i];
-				if (purify_count > GetMaxTotalSlots()) {
-					purify_count = GetMaxTotalSlots();
-				}
 
-				for(int slot = 0; slot < purify_count; slot++) {
+				for(int slot = 0; slot < GetMaxTotalSlots() && purify_count > 0; slot++) {
 					if (IsValidSpell(buffs[slot].spellid) && IsDetrimentalSpell(buffs[slot].spellid)){
 
 						if (!IsEffectInSpell(buffs[slot].spellid, SE_Charm) &&
@@ -1218,6 +1212,7 @@ bool Mob::SpellEffect(Mob* caster, uint16 spell_id, float partial, int level_ove
 							buffs[slot].spellid != SPELL_REVIVAL_SICKNESS)
 						{
 							BuffFadeBySlot(slot);
+							purify_count--;
 						}
 					}
 				}
@@ -4912,7 +4907,7 @@ void Mob::BuffFadeBySlot(int slot, bool iRecalcBonuses)
 	}
 
 	if (RuleB(Custom, MulticlassingEnabled)) {
-		if (buffs[slot].spellid = bardsong) {
+		if (buffs[slot].spellid == bardsong) {
 			ZeroBardPulseVars();
 		}
 	}
@@ -6559,7 +6554,31 @@ int64 Mob::CalcFocusEffect(focusType type, uint16 focus_id, uint16 spell_id, boo
 	return (value * lvlModifier / 100);
 }
 
-void Mob::TryTriggerOnCastFocusEffect(focusType type, uint16 spell_id)
+std::vector<std::pair<std::string,int>> GetTriggerOnCastWhitelist() {
+	std::vector<std::pair<std::string,int>> ret_val;
+
+	std::vector<std::string> split_list = Strings::Split(RuleS(Custom, AA339Whitelist), ',');
+	while(!split_list.empty()) {
+		std::string type = "spell";
+		std::string item = split_list.back();
+
+		//Prefix AA ability ids with 'aa'.  Ex: "aa8700"
+		if(Strings::BeginsWith(item, "aa")) {
+			type = "aa";
+			item = Strings::LTrim(item, "a");
+		}
+
+		if(Strings::IsNumber(item)) {
+			ret_val.push_back(std::make_pair(type, Strings::ToInt(item)));
+		}
+
+		split_list.pop_back();
+	}
+
+	return ret_val;
+}
+
+void Mob::TryTriggerOnCastFocusEffect(focusType type, uint16 spell_id, bool check_whitelist)
 {
 	if (IsBardSong(spell_id)) {
 		return;
@@ -6571,6 +6590,25 @@ void Mob::TryTriggerOnCastFocusEffect(focusType type, uint16 spell_id)
 
 	int32 focus_spell_id = 0;
 	int32 proc_spellid   = 0;
+
+	std::vector<std::pair<std::string,int>> white_list;
+	if(check_whitelist) {
+		white_list = GetTriggerOnCastWhitelist();
+	}
+
+	auto is_allowed = [check_whitelist, white_list](std::string type, uint32 spell_id) -> bool {
+		if(!check_whitelist) {
+			return true;
+		}
+
+		for(int i = 0; i < white_list.size(); i++) {
+			if(white_list[i].first == type && white_list[i].second == spell_id) {
+				return true;
+			}
+		}
+
+		return false;
+	};
 
 	// item focus
 	if (IsOfClientBot() && itembonuses.FocusEffects[type]) {
@@ -6589,6 +6627,10 @@ void Mob::TryTriggerOnCastFocusEffect(focusType type, uint16 spell_id)
 					continue;
 				}
 
+				if(!is_allowed("spell", focus_spell_id)) {
+					continue;
+				}
+
 				proc_spellid = CalcFocusEffect(type, focus_spell_id, spell_id);
 				if (proc_spellid) {
 					TryTriggerOnCastProc(focus_spell_id, spell_id, proc_spellid);
@@ -6603,6 +6645,10 @@ void Mob::TryTriggerOnCastFocusEffect(focusType type, uint16 spell_id)
 						focus_spell_id = temp_item_aug->Focus.Effect;
 
 						if (!IsEffectInSpell(focus_spell_id, SE_TriggerOnCast)) {
+							continue;
+						}
+
+						if(!is_allowed("spell", focus_spell_id)) {
 							continue;
 						}
 
@@ -6629,6 +6675,10 @@ void Mob::TryTriggerOnCastFocusEffect(focusType type, uint16 spell_id)
 				continue;
 			}
 
+			if(!is_allowed("spell", focus_spell_id)) {
+				continue;
+			}
+
 			proc_spellid = CalcFocusEffect(type, focus_spell_id, spell_id);
 			if (proc_spellid) {
 				TryTriggerOnCastProc(focus_spell_id, spell_id, proc_spellid);
@@ -6649,6 +6699,10 @@ void Mob::TryTriggerOnCastFocusEffect(focusType type, uint16 spell_id)
 			}
 
 			if (rank->effects.empty()) {
+				continue;
+			}
+
+			if(!is_allowed("aa", ability->id)) {
 				continue;
 			}
 

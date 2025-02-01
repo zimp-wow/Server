@@ -1046,8 +1046,8 @@ NPC * NPC::SpawnNodeNPC(std::string name, std::string last_name, const glm::vec4
 
 	npc_type->current_hp       = 4000000;
 	npc_type->max_hp           = 4000000;
-	npc_type->race             = 2254;
-	npc_type->gender           = 2;
+	npc_type->race             = 127;
+	npc_type->gender           = 0;
 	npc_type->class_           = 9;
 	npc_type->deity            = 1;
 	npc_type->level            = 200;
@@ -3913,13 +3913,12 @@ int NPC::GetRolledItemCount(uint32 item_id)
 
 void NPC::SendPositionToClients()
 {
-	auto      p  = new EQApplicationPacket(OP_ClientUpdate, sizeof(PlayerPositionUpdateServer_Struct));
-	auto      *s = (PlayerPositionUpdateServer_Struct *) p->pBuffer;
+	static EQApplicationPacket p(OP_ClientUpdate, sizeof(PlayerPositionUpdateServer_Struct));
+	auto      *s = (PlayerPositionUpdateServer_Struct *) p.pBuffer;
 	for (auto &c: entity_list.GetClientList()) {
 		MakeSpawnUpdate(s);
-		c.second->QueuePacket(p, false);
+		c.second->QueuePacket(&p, false);
 	}
-	safe_delete(p);
 }
 
 void NPC::HandleRoambox()

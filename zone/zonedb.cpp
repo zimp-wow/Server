@@ -52,11 +52,7 @@
 #include "../common/repositories/zone_repository.h"
 
 #include "../common/repositories/trader_repository.h"
-
-#if defined(WIN32)
-#include <shlwapi.h>
-#pragma comment (lib, "Shlwapi.lib")
-#endif
+#include "../common/repositories/character_evolving_items_repository.h"
 
 #include <ctime>
 #include <iostream>
@@ -1694,6 +1690,10 @@ const NPCType *ZoneDatabase::LoadNPCTypesData(uint32 npc_type_id, bool bulk_load
 
 	if (RuleI(Custom, FarmingInstanceVersion) == version) {
 		version = RuleI(Custom, FarmingInstanceTemplateVersion);
+	}
+
+	if (RuleI(Custom, EventInstanceVersion) == version) {
+		version = RuleI(Custom, EventInstanceTemplateVersion);
 	}
 
 	if (bulk_load) {

@@ -815,6 +815,7 @@ void NPC::RemoveItem(uint32 item_id, uint16 quantity, uint16 slot)
 				GetInv().DeleteItem(item->equip_slot);
 			}
 			CalcBonuses();
+			safe_delete(item);
 			return;
 		}
 		else if (item->item_id == item_id && item->equip_slot == slot && quantity >= 1) {
@@ -828,6 +829,7 @@ void NPC::RemoveItem(uint32 item_id, uint16 quantity, uint16 slot)
 					GetInv().DeleteItem(item->equip_slot);
 				}
 				CalcBonuses();
+				safe_delete(item);
 			}
 			else {
 				item->charges -= quantity;

@@ -83,7 +83,6 @@ extern PetitionList petition_list;
 extern EntityList entity_list;
 typedef void (Client::*ClientPacketProc)(const EQApplicationPacket *app);
 
-
 //Use a map for connecting opcodes since it dosent get used a lot and is sparse
 std::map<uint32, ClientPacketProc> ConnectingOpcodes;
 //Use a static array for connected, for speed
@@ -213,6 +212,7 @@ void MapOpcodes()
 	ConnectedOpcodes[OP_Emote] = &Client::Handle_OP_Emote;
 	ConnectedOpcodes[OP_EndLootRequest] = &Client::Handle_OP_EndLootRequest;
 	ConnectedOpcodes[OP_EnvDamage] = &Client::Handle_OP_EnvDamage;
+	ConnectedOpcodes[OP_EvolveItem] = &Client::Handle_OP_EvolveItem;
 	ConnectedOpcodes[OP_FaceChange] = &Client::Handle_OP_FaceChange;
 	ConnectedOpcodes[OP_FeignDeath] = &Client::Handle_OP_FeignDeath;
 	ConnectedOpcodes[OP_FindPersonRequest] = &Client::Handle_OP_FindPersonRequest;
@@ -288,6 +288,7 @@ void MapOpcodes()
 	ConnectedOpcodes[OP_ItemLinkResponse] = &Client::Handle_OP_ItemLinkResponse;
 	ConnectedOpcodes[OP_ItemName] = &Client::Handle_OP_ItemName;
 	ConnectedOpcodes[OP_ItemPreview] = &Client::Handle_OP_ItemPreview;
+	ConnectedOpcodes[OP_ItemPreviewRequest] = &Client::Handle_OP_ItemPreviewRequest;
 	ConnectedOpcodes[OP_ItemVerifyRequest] = &Client::Handle_OP_ItemVerifyRequest;
 	ConnectedOpcodes[OP_ItemViewUnknown] = &Client::Handle_OP_Ignore;
 	ConnectedOpcodes[OP_Jump] = &Client::Handle_OP_Jump;
@@ -839,7 +840,7 @@ void Client::CompleteConnect()
 		);
 
 		if (IsPetNameChangeAllowed()) {
-			InvokeChangePetNameNag();
+			InvokeChangePetName(false);
 		}
 	}
 
@@ -1013,8 +1014,14 @@ void Client::CompleteConnect()
 		SendDisciplineUpdate();
 	}
 
-	if (RuleB(Zone, AkkadiusTempPerformanceFeatureFlag)) {
-		m_last_seen_mob_position.reserve(entity_list.GetMobList().size());
+	// set initial position for mob tracking
+	m_last_seen_mob_position.reserve(entity_list.GetMobList().size());
+	for (auto& mob : entity_list.GetMobList()) {
+		if (!mob.second->IsNPC()) {
+			continue;
+		}
+
+		m_last_seen_mob_position[mob.second->GetID()] = mob.second->GetPosition();
 	}
 
 	// enforce some rules..
@@ -1368,7 +1375,7 @@ void Client::Handle_Connect_OP_ZoneEntry(const EQApplicationPacket *app)
 	// set to full support in case they're a gm with items in disabled expansion slots...but, have their gm flag off...
 	// item loss will occur when they use the 'empty' slots, if this is not done
 	m_inv.SetGMInventory(true);
-	loaditems = database.GetInventory(cid, &m_inv); /* Load Character Inventory */
+	loaditems = database.GetInventory(this); /* Load Character Inventory */
 	database.LoadCharacterBandolier(cid, &m_pp); /* Load Character Bandolier */
 	database.LoadCharacterBindPoint(cid, &m_pp); /* Load Character Bind */
 	database.LoadCharacterMaterialColor(cid, &m_pp); /* Load Character Material */
@@ -1951,8 +1958,9 @@ void Client::Handle_OP_AAAction(const EQApplicationPacket *app)
 		PurchaseAlternateAdvancementRank(action->ability);
 	}
 	else if (action->action == aaActionDisableEXP) { //Turn Off AA Exp
-		if (m_epp.perAA > 0)
+		if (m_epp.perAA > 0) {
 			MessageString(Chat::White, AA_OFF);
+		}
 
 		m_epp.perAA = 0;
 		SendAlternateAdvancementStats();
@@ -2816,6 +2824,8 @@ void Client::Handle_OP_AltCurrencyReclaim(const EQApplicationPacket *app)
 	AltCurrencyReclaim_Struct *reclaim = (AltCurrencyReclaim_Struct*)app->pBuffer;
 	uint32 item_id = zone->GetCurrencyItemID(reclaim->currency_id);
 
+	LogDebug("currency_id: [{}] item_id: [{}]", reclaim->currency_id, item_id);
+
 	if (!item_id) {
 		return;
 	}
@@ -2863,6 +2873,7 @@ void Client::Handle_OP_AltCurrencyReclaim(const EQApplicationPacket *app)
 			QServ->PlayerLogEvent(Player_Log_Alternate_Currency_Transactions, CharacterID(), event_desc);
 		}
 	}
+	SendAlternateCurrencyValues();
 }
 
 void Client::Handle_OP_AltCurrencySell(const EQApplicationPacket *app)
@@ -3320,11 +3331,11 @@ void Client::Handle_OP_AugmentItem(const EQApplicationPacket *app)
 				if (!new_aug) { // Shouldn't get the OP code without the augment on the user's cursor, but maybe it's h4x.
 					LogError("AugmentItem OpCode with 'Insert' or 'Swap' action received, but no augment on client's cursor");
 					Message(Chat::Red, "Error: No augment found on cursor for inserting.");
-					return;
+					break;
 				} else {
 					if (!RuleB(Inventory, AllowMultipleOfSameAugment) && tobe_auged->ContainsAugmentByID(new_aug->GetID())) {
 						Message(Chat::Red, "Error: Cannot put multiple of the same augment in an item.");
-						return;
+						break;
 					}
 
 					if (
@@ -3412,7 +3423,7 @@ void Client::Handle_OP_AugmentItem(const EQApplicationPacket *app)
 									in_augment->augment_index
 								).c_str()
 							);
-							return;
+							break;
 						}
 
 						item_one_to_push = tobe_auged->Clone();
@@ -3484,7 +3495,7 @@ void Client::Handle_OP_AugmentItem(const EQApplicationPacket *app)
 					}
 				} else {
 					Message(Chat::Red, "Error: Could not find augmentation to remove at index %i. Aborting.", in_augment->augment_index);
-					return;
+					break;
 				}
 
 				old_aug = tobe_auged->RemoveAugment(in_augment->augment_index);
@@ -3517,7 +3528,7 @@ void Client::Handle_OP_AugmentItem(const EQApplicationPacket *app)
 					if (!PutItemInInventory(EQ::invslot::slotCursor, *item_two_to_push, true)) {
 						LogError("Problem returning augment to player's cursor after safe removal");
 						Message(Chat::Yellow, "Error: Failed to return augment after removal from item!");
-						return;
+						break;
 					}
 				}
 				break;
@@ -3562,7 +3573,7 @@ void Client::Handle_OP_AugmentItem(const EQApplicationPacket *app)
 							in_augment->augment_index
 						).c_str()
 					);
-					return;
+					break;
 				}
 
 				tobe_auged->DeleteAugment(in_augment->augment_index);
@@ -3583,6 +3594,7 @@ void Client::Handle_OP_AugmentItem(const EQApplicationPacket *app)
 				if (material != EQ::textures::materialInvalid) {
 					SendWearChange(material);
 				}
+
 				break;
 			default: // Unknown
 				LogInventory(
@@ -3596,7 +3608,8 @@ void Client::Handle_OP_AugmentItem(const EQApplicationPacket *app)
 				);
 				break;
 		}
-
+		safe_delete(item_one_to_push);
+		safe_delete(item_two_to_push);
 	} else {
 		Object::HandleAugmentation(this, in_augment, m_tradeskill_object); // Delegate to tradeskill object to perform combine
 	}
@@ -4676,22 +4689,19 @@ void Client::Handle_OP_ChangePetName(const EQApplicationPacket *app) {
 		return;
 	}
 
-	auto payload = (ChangePetName_Struct*)app->pBuffer;
-
+	auto p = (ChangePetName_Struct *) app->pBuffer;
 	if (!IsPetNameChangeAllowed()) {
-		payload->response_code = ChangePetNameResponse::NotEligible;
+		p->response_code = ChangePetNameResponse::NotEligible;
 		QueuePacket(app);
 		return;
 	}
 
-	if (ChangePetName(payload->new_pet_name)) {
-		payload->response_code = ChangePetNameResponse::Accepted;
-	} else {
-		payload->response_code = ChangePetNameResponse::Denied; // not actually needed but included here for completeness
+	p->response_code = ChangePetNameResponse::Denied;
+	if (ChangePetName(p->new_pet_name)) {
+		p->response_code = ChangePetNameResponse::Accepted;
 	}
 
 	QueuePacket(app);
-	return;
 }
 
 void Client::Handle_OP_ClearBlockedBuffs(const EQApplicationPacket *app)
@@ -5027,11 +5037,10 @@ void Client::Handle_OP_ClientUpdate(const EQApplicationPacket *app) {
 			auto boat_delta = glm::vec4(ppu->delta_x, ppu->delta_y, ppu->delta_z, EQ10toFloat(ppu->delta_heading));
 			cmob->SetDelta(boat_delta);
 
-			auto outapp = new EQApplicationPacket(OP_ClientUpdate, sizeof(PlayerPositionUpdateServer_Struct));
-			PlayerPositionUpdateServer_Struct *ppus = (PlayerPositionUpdateServer_Struct *) outapp->pBuffer;
+			static EQApplicationPacket outapp(OP_ClientUpdate, sizeof(PlayerPositionUpdateServer_Struct));
+			auto *ppus = (PlayerPositionUpdateServer_Struct *) outapp.pBuffer;
 			cmob->MakeSpawnUpdate(ppus);
-			entity_list.QueueCloseClients(cmob, outapp, true, 300, this, false);
-			safe_delete(outapp);
+			entity_list.QueueCloseClients(cmob, &outapp, true, 300, this, false);
 
 			/* Update the boat's position on the server, without sending an update */
 			cmob->GMMove(ppu->x_pos, ppu->y_pos, ppu->z_pos, EQ12toFloat(ppu->heading));
@@ -5189,22 +5198,7 @@ void Client::Handle_OP_ClientUpdate(const EQApplicationPacket *app) {
 		CheckScanCloseMobsMovingTimer();
 	}
 
-	if (RuleB(Zone, EnableEntityClipping)) {
-		if (moving) {
-			if (m_see_close_mobs_timer.GetRemainingTime() > 1000) {
-				m_see_close_mobs_timer.Disable();
-				m_see_close_mobs_timer.Start(1000);
-				m_see_close_mobs_timer.Trigger();
-			}
-		}
-		else if (m_see_close_mobs_timer.GetDuration() == 1000) {
-			m_see_close_mobs_timer.Disable();
-			m_see_close_mobs_timer.Start(60000);
-			m_see_close_mobs_timer.Trigger();
-		}
-	}
-
-	CheckSendBulkClientPositionUpdate();
+	CheckSendBulkNpcPositions();
 
 	int32 new_animation = ppu->animation;
 
@@ -5227,15 +5221,15 @@ void Client::Handle_OP_ClientUpdate(const EQApplicationPacket *app) {
 		m_Position.w = new_heading;
 
 		/* Broadcast update to other clients */
-		auto outapp = new EQApplicationPacket(OP_ClientUpdate, sizeof(PlayerPositionUpdateServer_Struct));
-		PlayerPositionUpdateServer_Struct *position_update = (PlayerPositionUpdateServer_Struct *) outapp->pBuffer;
+		static EQApplicationPacket outapp(OP_ClientUpdate, sizeof(PlayerPositionUpdateServer_Struct));
+		PlayerPositionUpdateServer_Struct *position_update = (PlayerPositionUpdateServer_Struct *) outapp.pBuffer;
 
 		MakeSpawnUpdate(position_update);
 
 		if (gm_hide_me) {
-			entity_list.QueueClientsStatus(this, outapp, true, Admin(), AccountStatus::Max);
+			entity_list.QueueClientsStatus(this, &outapp, true, Admin(), AccountStatus::Max);
 		} else {
-			entity_list.QueueCloseClients(this, outapp, true, RuleI(Range, ClientPositionUpdates), nullptr, true);
+			entity_list.QueueCloseClients(this, &outapp, true, RuleI(Range, ClientPositionUpdates), nullptr, true);
 		}
 
 
@@ -5244,12 +5238,10 @@ void Client::Handle_OP_ClientUpdate(const EQApplicationPacket *app) {
 		Raid *raid = GetRaid();
 
 		if (raid) {
-			raid->QueueClients(this, outapp, true, true, (RuleI(Range, ClientPositionUpdates) * -1));
+			raid->QueueClients(this, &outapp, true, true, (RuleI(Range, ClientPositionUpdates) * -1));
 		} else if (group) {
-			group->QueueClients(this, outapp, true, true, (RuleI(Range, ClientPositionUpdates) * -1));
+			group->QueueClients(this, &outapp, true, true, (RuleI(Range, ClientPositionUpdates) * -1));
 		}
-
-		safe_delete(outapp);
 	}
 
 	if (zone->watermap) {
@@ -9576,6 +9568,30 @@ void Client::Handle_OP_ItemPreview(const EQApplicationPacket *app)
 		return;
 }
 
+void Client::Handle_OP_ItemPreviewRequest(const EQApplicationPacket* app)
+{
+	VERIFY_PACKET_LENGTH(OP_ItemPreviewRequest, app, ItemPreview_Struct);
+	auto ips  = (ItemPreview_Struct*) app->pBuffer;
+	const EQ::ItemData* item = database.GetItem(ips->itemid);
+
+	if (item) {
+		EQ::ItemInstance* inst = database.CreateItem(item);
+		if (inst) {
+			std::string packet = inst->Serialize(-1);
+			auto        outapp = new EQApplicationPacket(OP_ItemPreviewRequest, packet.length());
+			memcpy(outapp->pBuffer, packet.c_str(), packet.length());
+
+#if EQDEBUG >= 9
+			DumpPacket(outapp);
+#endif
+
+			QueuePacket(outapp);
+			safe_delete(outapp);
+			safe_delete(inst);
+		}
+	}
+}
+
 void Client::Handle_OP_ItemVerifyRequest(const EQApplicationPacket *app)
 {
 	using EQ::spells::CastingSlot;
@@ -11039,7 +11055,12 @@ void Client::Handle_OP_MoveItem(const EQApplicationPacket *app)
 			InterrogateInventory(this, true, false, true, error);
 	}
 
-	return;
+	for (int slot : {mi->to_slot, mi->from_slot}) {
+		auto item = GetInv().GetItem(slot);
+		if (item && item->IsEvolving()) {
+			CharacterEvolvingItemsRepository::UpdateOne(database, item->GetEvolvingDetails());
+		}
+	}
 }
 
 void Client::Handle_OP_MoveMultipleItems(const EQApplicationPacket *app)
@@ -11106,6 +11127,7 @@ void Client::Handle_OP_MoveMultipleItems(const EQApplicationPacket *app)
 						InterrogateInventory(this, true, false, true, error);
 					}
 				}
+				safe_delete(mi);
 			}
 		// This is the swap.
 		// Client behavior is just to move stacks without combining them
@@ -14761,6 +14783,11 @@ void Client::Handle_OP_ShopPlayerSell(const EQApplicationPacket *app)
 		return;
 	}
 
+	if (item->SummonedFlag) {
+		Message(Chat::MerchantExchange, "%s tells you, 'It looks like that item has no value'", vendor->GetCleanName());
+		return;
+	}
+
 	uint32 cost_quantity = mp->quantity;
 	if (inst->IsCharged())
 		uint32 cost_quantity = 1;
@@ -15054,14 +15081,13 @@ void Client::Handle_OP_ShopRequest(const EQApplicationPacket *app)
 		mco->rate = 1 / buy_cost_mod;
 	}
 
-	SendTargetCommand(tmp->GetID());
-	ProcessAutoSellBags(tmp);
-
 	outapp->priority = 6;
 	QueuePacket(outapp);
 	safe_delete(outapp);
 
 	if (action == MerchantActions::Open) {
+		SendTargetCommand(tmp->GetID());
+		ProcessAutoSellBags(tmp);
 		BulkSendMerchantInventory(merchant_id, tmp->GetNPCTypeID());
 		if ((tabs_to_display & Parcel) == Parcel) {
 			SendBulkParcels();
@@ -16044,10 +16070,20 @@ void Client::Handle_OP_TraderBuy(const EQApplicationPacket *app)
 	//
 	auto in     = (TraderBuy_Struct *) app->pBuffer;
 
-	if (in->trader_id >= TraderRepository::TRADER_CONVERT_ID) {
+	if (RuleB(Bazaar, UseAlternateBazaarSearch) && in->trader_id >= TraderRepository::TRADER_CONVERT_ID) {
 		auto trader = TraderRepository::GetTraderByInstanceAndSerialnumber(
-			database, in->trader_id - TraderRepository::TRADER_CONVERT_ID, in->serial_number
+			database,
+			in->trader_id - TraderRepository::TRADER_CONVERT_ID,
+			in->serial_number
 		);
+
+		if (!trader.trader_id) {
+			LogTrading("Unable to convert trader id for {} and serial number {}.  Trader Buy aborted.",
+				in->trader_id - TraderRepository::TRADER_CONVERT_ID,
+				in->serial_number
+			);
+			return;
+		}
 
 		in->trader_id = trader.trader_id;
 		strn0cpy(in->seller_name, trader.trader_name.c_str(), sizeof(in->seller_name));
@@ -16128,7 +16164,27 @@ void Client::Handle_OP_TraderBuy(const EQApplicationPacket *app)
 				TradeRequestFailed(app);
 				return;
 			}
-			trader = entity_list.GetClientByCharID(in->trader_id);
+
+			if (RuleI(Custom, EnableSeasonalCharacters)) {
+				DataBucketKey db_key = {};
+				db_key.character_id = database.GetCharacterID(in->seller_name);
+				db_key.key = "SeasonalCharacter";
+
+				bool dst_seasonal = (Strings::ToInt(DataBucket::GetData(db_key).value) == RuleI(Custom,EnableSeasonalCharacters));
+				if (dst_seasonal != IsSeasonal()) {
+						SendParcelIconStatus();
+						Message(
+						Chat::Yellow,
+						"You may not purchase from this trader, because they are not a member of the same Season as you are."
+					);
+					in->method     = BazaarByParcel;
+					in->sub_action = Failed;
+					TradeRequestFailed(app);
+					return;
+				}
+			}
+
+
 			LogTrading("Buy item by direct inventory delivery <green>[{}] item_id <green>[{}] quantity <green>[{}] "
 					   "serial_number <green>[{}]",
 					   in->trader_id,
@@ -16136,13 +16192,8 @@ void Client::Handle_OP_TraderBuy(const EQApplicationPacket *app)
 					   in->quantity,
 					   in->serial_number
 			);
-			Message(
-				Chat::Yellow,
-				"Direct inventory delivey is not yet implemented.  Please visit the vendor directly or purchase via parcel delivery."
-			);
-			in->method     = BazaarByDirectToInventory;
-			in->sub_action = Failed;
-			TradeRequestFailed(app);
+
+			BuyTraderItemVoucher(in, app);
 			break;
 		}
 	}
@@ -17221,13 +17272,12 @@ bool Client::CanTradeFVNoDropItem()
 
 void Client::SendMobPositions()
 {
-	auto      p  = new EQApplicationPacket(OP_ClientUpdate, sizeof(PlayerPositionUpdateServer_Struct));
-	auto      *s = (PlayerPositionUpdateServer_Struct *) p->pBuffer;
+	static EQApplicationPacket p(OP_ClientUpdate, sizeof(PlayerPositionUpdateServer_Struct));
+	auto      *s = (PlayerPositionUpdateServer_Struct *) p.pBuffer;
 	for (auto &m: entity_list.GetMobList()) {
 		m.second->MakeSpawnUpdate(s);
-		QueuePacket(p, false);
+		QueuePacket(&p, false);
 	}
-	safe_delete(p);
 }
 
 struct RecordKillCheck {
@@ -17732,4 +17782,36 @@ void Client::Handle_OP_ShopRetrieveParcel(const EQApplicationPacket *app)
     DoParcelRetrieve(*parcel_in);
 }
 
+void Client::Handle_OP_EvolveItem(const EQApplicationPacket *app)
+{
+	if (app->size != sizeof(EvolveItemToggle)) {
+		LogError(
+			"Received Handle_OP_EvolveItem packet. Expected size {}, received size {}.",
+			sizeof(EvolveItemToggle),
+			app->size
+		);
+		return;
+	}
 
+	auto in = reinterpret_cast<EvolveItemToggle *>(app->pBuffer);
+
+	switch (in->action) {
+		case EvolvingItems::Actions::UPDATE_ITEMS: {
+			DoEvolveItemToggle(app);
+			break;
+		}
+		case EvolvingItems::Actions::FINAL_RESULT: {
+			DoEvolveItemDisplayFinalResult(app);
+			break;
+		}
+		case EvolvingItems::Actions::TRANSFER_XP: {
+			DoEvolveTransferXP(app);
+			break;
+		}
+		case EvolvingItems::Actions::TRANSFER_WINDOW_DETAILS: {
+			SendEvolveXPWindowDetails(app);
+		}
+		default: {
+		}
+	}
+}

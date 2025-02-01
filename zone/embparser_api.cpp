@@ -1501,6 +1501,11 @@ void Perl__UpdateSpawnTimer(uint32 id, uint32 new_time)
 	quest_manager.UpdateSpawnTimer(id, new_time);
 }
 
+void Perl__UpdateSpawnTimer(uint32 id, uint32 new_time, uint32 instance_id)
+{
+	quest_manager.UpdateSpawnTimer(id, new_time, instance_id);
+}
+
 void Perl__MerchantSetItem(uint32 npc_id, uint32 item_id)
 {
 	quest_manager.MerchantSetItem(npc_id, item_id);
@@ -5668,16 +5673,6 @@ int Perl__GetZoneNPCMaximumAggroDistance(uint32 zone_id, int version)
 	return zone_store.GetZoneNPCMaximumAggroDistance(zone_id, version);
 }
 
-uint32 Perl__GetZoneMaximumMovementUpdateRange(uint32 zone_id)
-{
-	return zone_store.GetZoneMaximumMovementUpdateRange(zone_id);
-}
-
-uint32 Perl__GetZoneMaximumMovementUpdateRange(uint32 zone_id, int version)
-{
-	return zone_store.GetZoneMaximumMovementUpdateRange(zone_id, version);
-}
-
 int8 Perl__GetZoneMinimumExpansion(uint32 zone_id)
 {
 	return zone_store.GetZoneMinimumExpansion(zone_id);
@@ -6137,8 +6132,6 @@ void perl_register_quest()
 	package.add("GetZoneMaximumExpansion", (int8(*)(uint32, int))&Perl__GetZoneMaximumExpansion);
 	package.add("GetZoneMaximumLevel", (uint8(*)(uint32))&Perl__GetZoneMaximumLevel);
 	package.add("GetZoneMaximumLevel", (uint8(*)(uint32, int))&Perl__GetZoneMaximumLevel);
-	package.add("GetZoneMaximumMovementUpdateRange", (uint32(*)(uint32))&Perl__GetZoneMaximumMovementUpdateRange);
-	package.add("GetZoneMaximumMovementUpdateRange", (uint32(*)(uint32, int))&Perl__GetZoneMaximumMovementUpdateRange);
 	package.add("GetZoneMaximumPlayers", (int(*)(uint32))&Perl__GetZoneMaximumPlayers);
 	package.add("GetZoneMaximumPlayers", (int(*)(uint32, int))&Perl__GetZoneMaximumPlayers);
 	package.add("GetZoneMinimumClip", (float(*)(uint32))&Perl__GetZoneMinimumClip);
@@ -6926,7 +6919,8 @@ void perl_register_quest()
 	package.add("unique_spawn", (int(*)(int, int, int, float, float, float, float))&Perl__unique_spawn);
 	package.add("unscribespells", &Perl__unscribespells);
 	package.add("untraindiscs", &Perl__untraindiscs);
-	package.add("updatespawntimer", &Perl__UpdateSpawnTimer);
+	package.add("updatespawntimer", (void(*)(uint32, uint32))&Perl__UpdateSpawnTimer);
+	package.add("updatespawntimer", (void(*)(uint32, uint32, uint32))&Perl__UpdateSpawnTimer);
 	package.add("updatetaskactivity", (void(*)(int, int))&Perl__updatetaskactivity);
 	package.add("updatetaskactivity", (void(*)(int, int, int))&Perl__updatetaskactivity);
 	package.add("updatetaskactivity", (void(*)(int, int, int, bool))&Perl__updatetaskactivity);
